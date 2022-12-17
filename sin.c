@@ -3,7 +3,7 @@
 #include <time.h>
 
 
-#define N (int) 1e7
+#define N (int) 1e8
 #define SIN sinf
 #define FLOAT float
 

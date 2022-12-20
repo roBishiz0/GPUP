@@ -4,9 +4,23 @@
 #include <time.h>
 
 #define FLOAT_TYPE double
-#define N 128
+#define N 256
 
-long iter_max = 10e6;
+struct timeval tv1, tv2, dtv;
+struct timezone *tz;
+
+void time_start() { gettimeofday(&tv1, &tz); }
+
+long time_stop()
+{ 
+    gettimeofday(&tv2, &tz);
+    dtv.tv_sec= tv2.tv_sec -tv1.tv_sec;
+    dtv.tv_usec=tv2.tv_usec-tv1.tv_usec;
+    if(dtv.tv_usec<0) { dtv.tv_sec--; dtv.tv_usec+=1000000; }
+    return dtv.tv_sec*1000+dtv.tv_usec/1000;
+}
+
+long iter_max = 10e5;
 FLOAT_TYPE tol = 10e-6;
 
 //pgcc -acc -Minfo=accel -o main main.c -lm && PGI_ACC_TIME=1
@@ -22,8 +36,8 @@ FLOAT_TYPE **allocate2DArray(int row, int col)
     return ptr;
 }
 
-FLOAT_TYPE diff(int nx, int ny, FLOAT_TYPE **a, FLOAT_TYPE **b) {
-
+FLOAT_TYPE diff(int nx, int ny, FLOAT_TYPE **a, FLOAT_TYPE **b) 
+{
     FLOAT_TYPE v = 0.0, t;
     #pragma acc kernels loop reduction(+:v)
     for (int j = 0; j < ny; j++) 
@@ -33,8 +47,8 @@ FLOAT_TYPE diff(int nx, int ny, FLOAT_TYPE **a, FLOAT_TYPE **b) {
     return sqrt(v / (FLOAT_TYPE)(nx * ny));
 }
 
-void init_border(uint n, FLOAT_TYPE **T, FLOAT_TYPE left_top, FLOAT_TYPE right_top, FLOAT_TYPE left_bottom, FLOAT_TYPE right_bottom){
-    
+void init_border(uint n, FLOAT_TYPE **T, FLOAT_TYPE left_top, FLOAT_TYPE right_top, FLOAT_TYPE left_bottom, FLOAT_TYPE right_bottom)
+{
     for (int j = 1; j < n - 1; j++) 
       for (int i = 1; i < n - 1; i++) 
         T[i][j] = 0.0;
@@ -50,6 +64,7 @@ void init_border(uint n, FLOAT_TYPE **T, FLOAT_TYPE left_top, FLOAT_TYPE right_t
 
 int main()
 {
+    iter_max--;
     FLOAT_TYPE **A = allocate2DArray(N, N);
     FLOAT_TYPE **Anew = allocate2DArray(N, N);
 
@@ -57,6 +72,8 @@ int main()
 
     long iter = 0;
     FLOAT_TYPE err = 10000.;
+
+    time_start();
 
     #pragma acc data copy(A[:N][:N]) create(Anew[:N][:N]) create(err)
     while (err >= tol && iter <= iter_max)
@@ -85,5 +102,7 @@ int main()
     printf("Iterations: %d\n", iter);
     printf("Err: %f\n", err);
 
-    getchar();
+    printf("Time: %ld\n", time_stop());
+
+    return 0;
 }
